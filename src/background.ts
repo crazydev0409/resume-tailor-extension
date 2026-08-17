@@ -10,7 +10,8 @@ import { insertGenerationRecord } from "@/services/supabaseHistory";
 
 const KEEPALIVE_ALARM = "keepalive";
 const STALE_CHECK_ALARM = "stale-check";
-const DEFAULT_MODEL = "deepseek-chat";
+const DEFAULT_MODEL = "deepseek-v4-pro";
+const DEFAULT_API_URL = "https://api.deepseek.com";
 
 function normalizeApiKey(value: string): string {
   return value.trim().replace(/^['"]+|['"]+$/g, "").replace(/\s+/g, "");
@@ -203,7 +204,7 @@ async function startTailoring(jobDescription: string, sourceUrl: string, sourceT
   // Read settings
   const {
     openaiApiKey = "",
-    openaiApiUrl = "https://api.deepseek.com",
+    openaiApiUrl = DEFAULT_API_URL,
     openaiModel = DEFAULT_MODEL,
     baseResume = "",
   } = await getStorage(["openaiApiKey", "openaiApiUrl", "openaiModel", "baseResume"]);

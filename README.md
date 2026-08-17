@@ -79,8 +79,8 @@ npm run build
 | Setting | Description | Default |
 |---------|-------------|---------|
 | API Key | Your OpenAI-compatible API key | — |
-| API URL | Base URL for the API provider | `https://api.openai.com/v1` |
-| Model | Model to use for tailoring | — |
+| API URL | Base URL for the API provider | `https://api.deepseek.com` |
+| Model | Model to use for tailoring | `deepseek-v4-pro` |
 | Base Resume | Your resume in Markdown format | — |
 
 ### Notification Settings

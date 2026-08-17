@@ -10,6 +10,7 @@ import { testConnection } from "@/services/supabaseHistory";
 interface SettingsViewProps {
   apiKey: string;
   apiUrl: string;
+  model: string;
   baseResume: string;
   notificationsEnabled: boolean;
   notifyOnStart: boolean;
@@ -17,6 +18,7 @@ interface SettingsViewProps {
   supabaseAnonKey: string;
   onApiKeyChange: (v: string) => void;
   onApiUrlChange: (v: string) => void;
+  onModelChange: (v: string) => void;
   onBaseResumeChange: (v: string) => void;
   onNotificationsEnabledChange: (v: boolean) => void;
   onNotifyOnStartChange: (v: boolean) => void;
@@ -50,6 +52,7 @@ create policy "anon select" on resume_generations
 export const SettingsView = ({
   apiKey,
   apiUrl,
+  model,
   baseResume,
   notificationsEnabled,
   notifyOnStart,
@@ -57,6 +60,7 @@ export const SettingsView = ({
   supabaseAnonKey,
   onApiKeyChange,
   onApiUrlChange,
+  onModelChange,
   onBaseResumeChange,
   onNotificationsEnabledChange,
   onNotifyOnStartChange,
@@ -90,6 +94,7 @@ export const SettingsView = ({
     const settings = {
       apiKey,
       apiUrl,
+      model,
       exportedAt: new Date().toISOString(),
       version: "1.0",
     };
@@ -116,6 +121,7 @@ export const SettingsView = ({
           const parsed = JSON.parse(ev.target?.result as string);
           if (parsed.apiKey) onApiKeyChange(normalizeApiKey(parsed.apiKey));
           if (parsed.apiUrl) onApiUrlChange(parsed.apiUrl);
+          if (parsed.model) onModelChange(parsed.model);
           toast.success("Settings imported!");
         } catch {
           toast.error("Invalid settings file");
@@ -277,6 +283,18 @@ export const SettingsView = ({
                 onChange={(e) => onApiUrlChange(e.target.value)}
                 className="text-xs h-8"
               />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Model</Label>
+              <Input
+                placeholder="deepseek-v4-pro"
+                value={model}
+                onChange={(e) => onModelChange(e.target.value.trim())}
+                className="text-xs h-8"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                DeepSeek V4 Pro is the quality-first default.
+              </p>
             </div>
             <div className="flex gap-2 pt-2">
               <Button variant="outline" size="sm" onClick={handleExportSettings} className="text-xs h-7 gap-1 flex-1">
