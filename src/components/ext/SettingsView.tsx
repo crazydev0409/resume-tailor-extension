@@ -287,13 +287,13 @@ export const SettingsView = ({
             <div className="space-y-1">
               <Label className="text-xs">Model</Label>
               <Input
-                placeholder="deepseek-v4-pro"
+                placeholder="deepseek-v4-flash"
                 value={model}
                 onChange={(e) => onModelChange(e.target.value.trim())}
                 className="text-xs h-8"
               />
               <p className="text-[10px] text-muted-foreground">
-                DeepSeek V4 Pro is the quality-first default.
+                DeepSeek V4 Flash is the cost-efficient default.
               </p>
             </div>
             <div className="flex gap-2 pt-2">

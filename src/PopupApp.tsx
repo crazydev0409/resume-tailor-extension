@@ -20,7 +20,7 @@ const PopupApp = () => {
   // Settings (synced with chrome.storage)
   const [apiKey, setApiKey] = useChromeStorage("openaiApiKey", "");
   const [apiUrl, setApiUrl] = useChromeStorage("openaiApiUrl", "https://api.deepseek.com");
-  const [model, setModel] = useChromeStorage("openaiModel", "deepseek-v4-pro");
+  const [model, setModel] = useChromeStorage("openaiModel", "deepseek-v4-flash");
   const [isDarkMode, setIsDarkMode] = useChromeStorage("isDarkMode", false);
   const [baseResume, setBaseResume] = useChromeStorage("baseResume", "");
   const [notificationsEnabled, setNotificationsEnabled] = useChromeStorage("notificationsEnabled", true);

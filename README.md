@@ -80,7 +80,7 @@ npm run build
 |---------|-------------|---------|
 | API Key | Your OpenAI-compatible API key | — |
 | API URL | Base URL for the API provider | `https://api.deepseek.com` |
-| Model | Model to use for tailoring | `deepseek-v4-pro` |
+| Model | Model to use for tailoring | `deepseek-v4-flash` |
 | Base Resume | Your resume in Markdown format | — |
 
 ### Notification Settings

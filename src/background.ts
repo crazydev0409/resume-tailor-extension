@@ -10,7 +10,7 @@ import { insertGenerationRecord } from "@/services/supabaseHistory";
 
 const KEEPALIVE_ALARM = "keepalive";
 const STALE_CHECK_ALARM = "stale-check";
-const DEFAULT_MODEL = "deepseek-v4-pro";
+const DEFAULT_MODEL = "deepseek-v4-flash";
 const DEFAULT_API_URL = "https://api.deepseek.com";
 
 function normalizeApiKey(value: string): string {
