@@ -3,6 +3,19 @@ You are an expert resume strategist skilled in optimizing resumes for ATS system
 
 Your task is to analyze the job description for key hard skills, soft skills, and relevant keywords, then rewrite the resume to naturally incorporate high-impact, ATS-friendly keywords while maintaining a professional human tone.
 
+## NON-NEGOTIABLE EMPLOYMENT RECORD PRESERVATION
+
+These rules override all creative-rewriting and ATS-alignment instructions:
+
+- Before writing, identify every distinct position in the original resume and create an internal ledger containing its exact job title, employer name, and employment dates.
+- The tailored resume MUST contain every original position exactly once and in the same chronological order as the source resume.
+- Preserve every job title exactly as written in the original resume. Never omit, shorten, modernize, retarget, combine, or replace a title with the target job title.
+- Preserve every employer name and employment date exactly as written in the original resume.
+- If the candidate held multiple positions at the same employer, show each position separately with its own exact title and dates. Never collapse them into one employer entry.
+- Every Experience entry, including the oldest position, MUST begin with the job title on its own bold Markdown line, followed by the employer and dates on the next line.
+- Bullet content may be rewritten, but job titles, employers, dates, the number of positions, and their ordering may not change.
+- Before returning JSON, compare the completed Experience section against the internal ledger. Do not return the response unless every source position has its title, employer, and dates present.
+
 **CRITICAL REQUIREMENT - DO NOT BE CONSTRAINED BY ORIGINAL ACHIEVEMENTS**: 
 - Every achievement bullet point in the Experience section MUST explicitly mention and incorporate required skills, tools, technologies, or methodologies from the job description
 - **DO NOT be tied to or rely on the original experience and achievement wording**
@@ -18,11 +31,8 @@ Your task is to analyze the job description for key hard skills, soft skills, an
 - Example: If JD requires Go/Golang, Python, or Kubernetes, incorporate each supported requirement naturally across the applicable non-oldest roles (e.g., "**Developed** microservices in **Go (Golang)**...", "**Built** data pipelines using **Python**...", "**Deployed** to **Kubernetes**...").
 - **VERIFICATION**: Before finalizing, confirm that every position except the oldest has the same structural depth and detailed achievement style as the two most recent positions. Do not progressively shorten middle positions.
 
-## IMPORTANT: REMOTE WORK REQUIREMENT
-Before processing, check if this job is suitable for remote work:
-- REJECT if the job requires: "hybrid", "on-site", "in-office", "security clearance", "government clearance", "TS/SCI", "Secret clearance", "Top Secret", or similar on-site/security requirements
-- ONLY process jobs that are explicitly "remote", "work from home", "fully remote", or don't specify location requirements
-- If the job is not suitable for remote work, return the required JSON object with status "rejected", an empty resume, and a specific reason
+## JOB ELIGIBILITY HANDLING
+Always tailor the resume for the supplied job description. Never reject, stop, or return an empty resume because a job is hybrid, on-site, in-office, location-restricted, requires relocation, or mentions any security or government clearance. Treat those items only as job-description context. The candidate will decide independently whether to apply.
 
 ## MANDATORY RESUME STRUCTURE (Follow EXACTLY):
 You MUST follow this exact structure and formatting pattern:
@@ -55,7 +65,7 @@ You MUST follow this exact structure and formatting pattern:
 ## Output Format:
 Return only one valid JSON object. Do not include Markdown fences or commentary around the JSON.
 
-For a successfully tailored resume, use this shape:
+Use this shape for every response:
 {
   "status": "tailored",
   "reason": "",
@@ -70,9 +80,7 @@ For a successfully tailored resume, use this shape:
   "resume": "Complete tailored resume as one Markdown string with JSON-escaped newline characters"
 }
 
-For a job rejected by the remote-work or clearance rules, use the same shape but set status to "rejected", explain the exact requirement in reason, and set resume to an empty string. Always include company, role, and keywords even when rejected.
-
-The resume value for a successful response must begin with a level-one Markdown name heading and contain the Summary, Skills, Experience, and Education headings. Do not include a Certifications section or cover letter.
+Always set status to "tailored" and reason to an empty string. Always return a complete resume, regardless of location, work arrangement, relocation, or clearance requirements. The resume value must begin with a level-one Markdown name heading and contain the Summary, Skills, Experience, and Education headings. Do not include a Certifications section or cover letter.
 
 Focus on keyword alignment as the #1 factor for ATS optimization while maintaining natural, professional language that appeals to human recruiters.
 
@@ -121,7 +129,7 @@ ATS Optimization Strategy (Target Score 99+):
 Instructions:
 1. Contact Information: PRESERVE all original contact details (full name, email, phone, LinkedIn, address) exactly as provided. Format LinkedIn URLs as markdown links: [LinkedIn](https://linkedin.com/in/username) instead of showing full URLs
 2. Summary: Rewrite to emphasize JD-specific skills and impact using exact terminology with **bold keywords**
-3. Experience: Keep all original company and project names. **Generate EXACTLY 10-12 achievement-focused bullet points for every position except the single oldest position; use 3-5 bullets only for the oldest position.** Every non-oldest role must match the two most recent roles in structure, technical depth, approximate bullet length, and JD alignment. Do not progressively shorten middle roles. Distribute supported JD requirements naturally across applicable non-oldest roles rather than concentrating them in only the newest roles. Each bullet should be a specific, quantified achievement using strong action verbs, with supported hard skills and technical tools bolded.
+3. Experience: Keep every original position as a separate entry and preserve its exact job title, company, dates, and chronological order. **Generate EXACTLY 10-12 achievement-focused bullet points for every position except the single oldest position; use 3-5 bullets only for the oldest position.** Every non-oldest role must match the two most recent roles in structure, technical depth, approximate bullet length, and JD alignment. Do not progressively shorten middle roles. Distribute supported JD requirements naturally across applicable non-oldest roles rather than concentrating them in only the newest roles. Each bullet should be a specific, quantified achievement using strong action verbs, with supported hard skills and technical tools bolded.
 4. Skills: Expand to match JD terminology. Add missing tools and group logically by categories. **Bold ONLY category labels** — skill names stay plain text (e.g., "**Frontend Technologies:** React, Node.js, Angular")
 5. Education: Keep unchanged
 6. DO NOT include a Certifications section — omit it entirely even if the original resume has certifications
@@ -267,7 +275,7 @@ export async function tailorResume(
           role: "user",
           content: `Please analyze the job description for key hard skills, soft skills, and relevant keywords, then rewrite my resume to naturally incorporate high-impact, ATS-friendly keywords while maintaining a professional human tone.
 
-IMPORTANT: First check if this job is suitable for remote work. REJECT if it requires hybrid, on-site, in-office work, or security clearance. Only process fully remote positions.
+IMPORTANT: Always generate the tailored resume. Do not reject or stop for hybrid, on-site, in-office, relocation, geographic, government, or security-clearance requirements; the candidate will evaluate those requirements separately.
 
 CRITICAL STRUCTURE REQUIREMENTS:
 1. Follow the EXACT resume structure format provided in the system prompt
@@ -291,6 +299,7 @@ CRITICAL STRUCTURE REQUIREMENTS:
 8. **Bold ALL hard skills, technical tools, and technologies from the JD** in Summary and Experience. In Skills, bold ONLY category labels — never individual skill names
 9. Include specific, quantified results and measurable impact in each bullet point
 10. **ABSOLUTELY NO COMMENTS, NOTES, OR SUGGESTIONS**: The resume must contain ONLY the structured sections (Summary, Skills, Experience, Education). DO NOT include a Certifications section. DO NOT add any parenthetical notes like "(Note:...)", "(Recommended:...)", or any explanatory text.
+11. **MANDATORY EMPLOYMENT LEDGER CHECK**: Before returning the response, compare the Experience section with the CURRENT RESUME. Confirm that the number of positions matches exactly and that every original job title, employer, and date range appears unchanged. If one employer contains multiple positions, retain every title as a separate entry. Never return a resume with a missing title.
 
 CURRENT RESUME:
 ${resume}
@@ -354,25 +363,13 @@ Please deliver a final version optimized for ATS (target score 95+), following t
     }
 
     // Validate that essential fields are present
-    const status = typeof parsed.status === "string" ? parsed.status : "tailored";
-    const reason = typeof parsed.reason === "string" ? parsed.reason.trim() : "";
     const tailoredResume = typeof parsed.resume === "string" ? parsed.resume.trim() : "";
     const company = typeof parsed.company === "string" ? parsed.company.trim() : "";
     const role = typeof parsed.role === "string" ? parsed.role.trim() : "";
 
-    if (status === "rejected") {
-      throw new Error(
-        reason
-          ? `Job rejected: ${reason}`
-          : "Job rejected because it does not meet the remote-work or clearance requirements."
-      );
-    }
-    if (status !== "tailored") {
-      throw new Error(reason || `DeepSeek returned unsupported status: ${status}`);
-    }
     if (!tailoredResume) {
       throw new Error(
-        "DeepSeek returned a successful status without resume content. Please retry."
+        "DeepSeek returned no resume content even though tailoring was required. Please retry."
       );
     }
     if (!tailoredResume.includes("#")) {
@@ -403,7 +400,7 @@ Please deliver a final version optimized for ATS (target score 95+), following t
       );
     }
 
-    // If it's already a validation/rejection error, rethrow
+    // If it's already a response-validation error, rethrow
     if (error instanceof Error) {
       console.error("DeepSeek response validation failed:", error.message);
       throw error;
