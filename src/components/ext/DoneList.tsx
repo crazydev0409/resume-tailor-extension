@@ -36,6 +36,7 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { generateResumePDFBlob } from "@/services/pdfGenerator";
 import { stripCertificationsSection } from "@/lib/utils";
+import { candidateResumeFilename, ensureResumeHeader } from "@/utils/resumeHeader";
 
 interface DoneListProps {
   items: DoneItem[];
@@ -105,10 +106,10 @@ export const DoneList = ({
       for (let i = 0; i < sorted.length; i++) {
         const item = sorted[i];
         const folderName = sanitizeForPath(`${item.companyName} - ${item.role}`);
-        const candidateName = extractCandidateName(item.tailoredResume);
-        const fileName = `${candidateName} Resume.pdf`;
+        const fileName = candidateResumeFilename(item.tailoredResume, item.originalResume);
+        const resumeContent = ensureResumeHeader(item.tailoredResume, item.originalResume);
         const pdfBlob = generateResumePDFBlob({
-          content: item.tailoredResume,
+          content: resumeContent,
           filename: fileName,
           colorTheme: "brown",
           template: "classic",
@@ -449,21 +450,5 @@ function sanitizeForPath(name: string): string {
       .replace(/[\\/:*?"<>|]/g, "")
       .replace(/\s+/g, " ")
       .trim() || "Resume"
-  );
-}
-
-// Pull the candidate's name from the resume markdown (first "# " heading).
-function extractCandidateName(resume: string): string {
-  const match = resume.match(/^#\s+(.+)$/m);
-  const cleaned = (match ? match[1] : "")
-    .replace(/\*\*/g, "")
-    .replace(/#/g, "")
-    .trim();
-  if (!cleaned) return "Resume";
-  return sanitizeForPath(
-    cleaned
-      .split(/\s+/)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ")
   );
 }

@@ -1,3 +1,5 @@
+import { ensureResumeHeader } from "@/utils/resumeHeader";
+
 const SYSTEM_PROMPT = `
 You are an expert resume strategist skilled in optimizing resumes for ATS systems and employer readability.
 
@@ -372,11 +374,6 @@ Please deliver a final version optimized for ATS (target score 95+), following t
         "DeepSeek returned no resume content even though tailoring was required. Please retry."
       );
     }
-    if (!tailoredResume.includes("#")) {
-      throw new Error(
-        "DeepSeek returned resume content without the required Markdown headings. Please retry."
-      );
-    }
     if (!company || !role) {
       throw new Error("API did not return company/role. The response may have been truncated. Please retry.");
     }
@@ -384,7 +381,7 @@ Please deliver a final version optimized for ATS (target score 95+), following t
     return {
       company,
       role,
-      resume: tailoredResume,
+      resume: ensureResumeHeader(tailoredResume, resume),
       keywords: parsed.keywords || {
         hardSkillsOnResume: [],
         hardSkillsOnJD: [],

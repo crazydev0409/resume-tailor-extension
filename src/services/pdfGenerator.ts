@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { extractResumeIdentity } from "@/utils/resumeHeader";
 
 export type PDFColorTheme = "forestGreen" | "navy" | "brown" | "blue";
 export type PDFTemplate =
@@ -226,8 +227,9 @@ function buildResumePDFDoc(
   // Parse content into structured sections
   const parseContent = (text: string): ParsedContent => {
     const lines = text.split("\n");
+    const identity = extractResumeIdentity(text);
     const parsed: ParsedContent = {
-      name: "",
+      name: identity.name,
       contactInfo: [],
       title: "",
       sections: [],
@@ -242,9 +244,8 @@ function buildResumePDFDoc(
 
       if (!line) continue;
 
-      // Extract name (first # heading)
-      if (line.startsWith("# ") && !parsed.name) {
-        parsed.name = stripMarkdown(line.substring(2));
+      // The identity parser accepts #/## headings plus bold or plain-text names.
+      if (i === identity.nameLineIndex) {
         continue;
       }
 
@@ -353,7 +354,7 @@ function buildResumePDFDoc(
     // If no sections were found, create one section with all remaining content
     if (parsed.sections.length === 0 && lines.length > 0) {
       const remainingContent: string[] = [];
-      let foundName = false;
+      let foundName = identity.nameLineIndex === -1;
       let foundContact = false;
 
       for (let idx = 0; idx < lines.length; idx++) {
@@ -361,7 +362,7 @@ function buildResumePDFDoc(
         const trimmed = line.trim();
         if (!trimmed) continue;
 
-        if (trimmed.startsWith("# ") && !foundName) {
+        if (idx === identity.nameLineIndex && !foundName) {
           foundName = true;
           continue;
         }
@@ -435,7 +436,6 @@ function buildResumePDFDoc(
     // ── Parse contact parts first (needed for band height) ──
     interface ContactPart {
       text: string;
-      url?: string;
       kind: "address" | "other";
     }
     const cleanedParts: ContactPart[] = [];
@@ -527,11 +527,13 @@ function buildResumePDFDoc(
           if (url.includes("linkedin.com")) {
             const linkedinUrl = url.replace(/^https?:\/\//, "").replace(/^www\./, "");
             if (!seenLinkedIn.has(linkedinUrl.toLowerCase())) {
-              cleanedParts.push({ text: linkedinUrl, url: url, kind: "other" });
+              cleanedParts.push({ text: linkedinUrl, kind: "other" });
               seenLinkedIn.add(linkedinUrl.toLowerCase());
             }
           } else {
-            cleanedParts.push({ text: linkText, url: url, kind: "other" });
+            // Keep PDFs static for strict applicant-tracking upload scanners.
+            // The visible label remains, but no interactive PDF action is added.
+            cleanedParts.push({ text: linkText, kind: "other" });
           }
           continue;
         }
@@ -542,11 +544,11 @@ function buildResumePDFDoc(
             const domain = urlMatch[1].replace(/\/$/, "");
             if (domain.includes("linkedin.com")) {
               if (!seenLinkedIn.has(domain.toLowerCase())) {
-                cleanedParts.push({ text: domain, url: cleaned, kind: "other" });
+                cleanedParts.push({ text: domain, kind: "other" });
                 seenLinkedIn.add(domain.toLowerCase());
               }
             } else {
-              cleanedParts.push({ text: domain, url: cleaned, kind: "other" });
+              cleanedParts.push({ text: domain, kind: "other" });
             }
           }
           continue;
@@ -626,14 +628,6 @@ function buildResumePDFDoc(
       doc.setFont(fontFamily, "normal");
       doc.setTextColor(230, 237, 243);
 
-      const links: Array<{
-        text: string;
-        url: string;
-        x: number;
-        y: number;
-        width: number;
-      }> = [];
-
       for (const lineParts of contactLines) {
         let lineText = "";
         for (let i = 0; i < lineParts.length; i++) {
@@ -654,23 +648,10 @@ function buildResumePDFDoc(
             currentX += doc.getTextWidth(separator);
           }
           const partWidth = doc.getTextWidth(lineParts[i].text);
-          if (lineParts[i].url) {
-            links.push({
-              text: lineParts[i].text,
-              url: lineParts[i].url!,
-              x: currentX,
-              y: yPosition,
-              width: partWidth,
-            });
-          }
           doc.text(lineParts[i].text, currentX, yPosition);
           currentX += partWidth;
         }
         yPosition += contactLineGap;
-      }
-
-      for (const link of links) {
-        doc.link(link.x, link.y - 3, link.width, 4, { url: link.url });
       }
     }
 

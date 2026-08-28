@@ -30,6 +30,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
 import { stripCertificationsSection } from "@/lib/utils";
+import { candidateResumeFilename, ensureResumeHeader } from "@/utils/resumeHeader";
 
 interface ResumeDetailViewProps {
   item: DoneItem;
@@ -42,9 +43,14 @@ export const ResumeDetailView = ({ item, onBack, onUpdateItem }: ResumeDetailVie
   const [pdfTemplate, setPdfTemplate] = useState<string>("classic");
   const [activeTab, setActiveTab] = useState<"resume" | "jd" | "keywords">("resume");
 
-  const resumeContent = stripCertificationsSection(item.tailoredResume);
+  const resumeContent = stripCertificationsSection(
+    ensureResumeHeader(item.tailoredResume, item.originalResume)
+  );
 
   const getFileName = (ext: string) => {
+    if (ext === "pdf") {
+      return candidateResumeFilename(item.tailoredResume, item.originalResume);
+    }
     const name = item.companyName || "resume";
     return `${name.toLowerCase().replace(/\s+/g, "-")}-resume.${ext}`;
   };
