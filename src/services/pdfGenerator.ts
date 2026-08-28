@@ -191,7 +191,9 @@ function buildResumePDFDoc(
       .replace(/^[-•*]\s+/, "")
       .replace(/\*\*/g, "")
       .trim();
-    return /^[A-Za-z0-9\s&/+\-]+:\s+/.test(cleaned);
+    // Accept punctuation in category names and optional spacing after the colon.
+    // The renderer applies bold from this structure even when Markdown omitted it.
+    return /^[^:]+:\s*\S/.test(cleaned);
   };
 
   // Helper to detect if a line is actual contact information
@@ -731,6 +733,14 @@ function buildResumePDFDoc(
       const line = section.content[i];
       let trimmed = line.trim();
 
+      // Skills are rendered as compact category/text lines, never as bullet items.
+      if (isSkillsSection) {
+        trimmed = trimmed.replace(
+          /^(?:[-*+]|\u2022|\u00e2\u20ac\u00a2)\s+/,
+          ""
+        );
+      }
+
       // Skip lines that are just section headers (shouldn't be here but just in case)
       if (trimmed.match(/^#{2,6}\s+/)) {
         continue;
@@ -937,7 +947,7 @@ function buildResumePDFDoc(
         doc.setDrawColor(...primaryColor);
         doc.setLineWidth(0.3);
         doc.line(margin, yPosition, margin + 25, yPosition);
-        yPosition += 5;
+        yPosition += 7;
         continue;
       }
 
@@ -1015,13 +1025,9 @@ function buildResumePDFDoc(
         doc.setFont(fontFamily, "normal");
         doc.setTextColor(...textColor);
 
-        // Bullet shape: square for classic, larger circle for modern
-        doc.setFillColor(...primaryColor);
-        if (isClassic) {
-          doc.rect(margin + 1.6, yPosition - 2.1, 1.8, 1.8, "F");
-        } else {
-          doc.circle(margin + 2.5, yPosition - 1.2, 0.9, "F");
-        }
+        // Use a consistent black circular marker across all templates.
+        doc.setFillColor(0, 0, 0);
+        doc.circle(margin + 2.5, yPosition - 1.2, 0.7, "F");
 
         // Parse and render text with accurate mixed bold/normal width wrapping
         // Tokenize into words/spaces with bold tracking
