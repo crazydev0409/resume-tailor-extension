@@ -199,7 +199,7 @@ function broadcast(message: any) {
 // ── Handler: start tailoring ──
 
 async function startTailoring(jobDescription: string, sourceUrl: string, sourceTitle: string) {
-  const id = Date.now().toString();
+  const id = crypto.randomUUID();
 
   // Read settings
   const {

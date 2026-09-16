@@ -30,6 +30,7 @@ import {
   Download,
   FileDown,
   CheckCircle,
+  X,
 } from "lucide-react";
 import { DoneItem } from "@/types/extension";
 import { formatDistanceToNow } from "date-fns";
@@ -63,15 +64,18 @@ export const DoneList = ({
   const [editLink, setEditLink] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
 
+  const searchWords = searchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const filtered = items
-    .filter(
-      (item) =>
-        item.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.jobDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.note && item.note.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
-    .sort((a, b) => {
+    // Legacy records can share an ID. Assign keys before filtering/sorting so
+    // React never reuses a different row or leaves an unmatched card behind.
+    .map((item, index) => ({ item, key: JSON.stringify([item.id, index]) }))
+    .filter(({ item }) => {
+      const fields = [item.companyName, item.role, item.note, item.jobDescription].map(
+        (value) => (value ?? "").toLowerCase()
+      );
+      return searchWords.every((word) => fields.some((field) => field.includes(word)));
+    })
+    .sort(({ item: a }, { item: b }) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
       return b.timestamp - a.timestamp;
@@ -213,16 +217,28 @@ export const DoneList = ({
       </div>
 
       {/* Search */}
-      {items.length > 3 && (
+      {(items.length > 0 || searchTerm.length > 0) && (
         <div className="px-4 py-1.5 border-b shrink-0">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
             <Input
-              placeholder="Search company, role, notes..."
+              placeholder="Search company, role, notes, job description..."
+              aria-label="Search company, role, notes, job description"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="text-xs h-7 pl-7"
+              className="text-xs h-7 pl-7 pr-8"
             />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-7 w-7 p-0"
+                onClick={() => setSearchTerm("")}
+                aria-label="Clear search"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -233,19 +249,19 @@ export const DoneList = ({
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
             <FileText className="w-10 h-10 mb-3 opacity-30" />
             <p className="text-sm font-medium">
-              {searchTerm ? "No matching resumes" : "No completed resumes yet"}
+              {searchWords.length > 0 ? "No matching resumes" : "No completed resumes yet"}
             </p>
             <p className="text-xs mt-1 max-w-[240px] text-center">
-              {searchTerm
+              {searchWords.length > 0
                 ? "Try a different search"
                 : "Select text on any job posting, right-click → 'Tailor My Resume'"}
             </p>
           </div>
         ) : (
           <div className="p-2 space-y-1">
-            {filtered.map((item) => (
+            {filtered.map(({ item, key }) => (
               <div
-                key={item.id}
+                key={key}
                 className={`group p-2.5 rounded-lg border transition-all cursor-pointer ${
                   item.pinned
                     ? "bg-primary/5 border-primary/30 hover:bg-primary/10"
