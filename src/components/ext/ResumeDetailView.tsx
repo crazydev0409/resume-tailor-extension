@@ -2,13 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   ArrowLeft,
   Copy,
   Download,
@@ -17,35 +10,26 @@ import {
   XCircle,
   Target,
 } from "lucide-react";
-import { DoneItem } from "@/types/extension";
+import { DoneItem, ResumeTheme } from "@/types/extension";
 import { toast } from "sonner";
-import {
-  generateResumePDF,
-  PDF_COLOR_OPTIONS,
-  PDF_TEMPLATE_OPTIONS,
-  type PDFColorTheme,
-  type PDFTemplate,
-} from "@/services/pdfGenerator";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
 import { stripCertificationsSection } from "@/lib/utils";
 import { candidateResumeFilename, ensureResumeHeader } from "@/utils/resumeHeader";
+import { PDFPreview } from "@/components/ext/PDFPreview";
+import { useResumePDF } from "@/hooks/useResumePDF";
 
 interface ResumeDetailViewProps {
   item: DoneItem;
   onBack: () => void;
-  onUpdateItem: (id: string, updates: Partial<DoneItem>) => void;
+  theme: ResumeTheme;
 }
 
-export const ResumeDetailView = ({ item, onBack, onUpdateItem }: ResumeDetailViewProps) => {
-  const [pdfColor, setPdfColor] = useState<string>("brown");
-  const [pdfTemplate, setPdfTemplate] = useState<string>("classic");
-  const [activeTab, setActiveTab] = useState<"resume" | "jd" | "keywords">("resume");
-
+export const ResumeDetailView = ({ item, onBack, theme }: ResumeDetailViewProps) => {
   const resumeContent = stripCertificationsSection(
     ensureResumeHeader(item.tailoredResume, item.originalResume)
   );
+  const { pdfBlob, pdfError } = useResumePDF(resumeContent, theme);
+  const [activeTab, setActiveTab] = useState<"resume" | "jd" | "keywords">("resume");
 
   const getFileName = (ext: string) => {
     if (ext === "pdf") {
@@ -62,12 +46,8 @@ export const ResumeDetailView = ({ item, onBack, onUpdateItem }: ResumeDetailVie
 
   const handleDownloadPdf = () => {
     try {
-      generateResumePDF({
-        content: resumeContent,
-        filename: getFileName("pdf"),
-        colorTheme: pdfColor as PDFColorTheme | "random",
-        template: pdfTemplate as PDFTemplate | "random",
-      });
+      if (!pdfBlob) return;
+      downloadBlob(pdfBlob, getFileName("pdf"));
       toast.success("PDF downloaded!");
     } catch {
       toast.error("Failed to generate PDF");
@@ -123,35 +103,11 @@ export const ResumeDetailView = ({ item, onBack, onUpdateItem }: ResumeDetailVie
 
       {/* Toolbar */}
       <div className="flex items-center gap-1.5 px-4 py-1.5 border-b shrink-0 flex-wrap">
-        <Select value={pdfColor} onValueChange={setPdfColor}>
-          <SelectTrigger className="w-[100px] h-6 text-[10px]">
-            <SelectValue placeholder="Color" />
-          </SelectTrigger>
-          <SelectContent>
-            {PDF_COLOR_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={pdfTemplate} onValueChange={setPdfTemplate}>
-          <SelectTrigger className="w-[110px] h-6 text-[10px]">
-            <SelectValue placeholder="Template" />
-          </SelectTrigger>
-          <SelectContent>
-            {PDF_TEMPLATE_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Button variant="outline" size="sm" onClick={handleCopy} className="h-6 text-[10px] gap-1">
           <Copy className="w-3 h-3" />
           Copy
         </Button>
-        <Button size="sm" onClick={handleDownloadPdf} className="h-6 text-[10px] gap-1">
+        <Button size="sm" disabled={!pdfBlob} onClick={handleDownloadPdf} className="h-6 text-[10px] gap-1">
           <Download className="w-3 h-3" />
           PDF
         </Button>
@@ -177,16 +133,20 @@ export const ResumeDetailView = ({ item, onBack, onUpdateItem }: ResumeDetailVie
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            {tab === "resume" ? "Tailored Resume" : tab === "jd" ? "Job Description" : "Keywords"}
+            {tab === "resume"
+              ? "Tailored Resume"
+                : tab === "jd"
+                  ? "Job Description"
+                  : "Keywords"}
           </button>
         ))}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">
         {activeTab === "resume" && (
-          <div className="prose prose-xs max-w-none dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{resumeContent}</ReactMarkdown>
+          <div className="mx-auto max-w-[620px]">
+            {pdfError ? <p role="alert" className="text-xs text-destructive">{pdfError}</p> : <PDFPreview blob={pdfBlob} />}
           </div>
         )}
 
@@ -195,6 +155,7 @@ export const ResumeDetailView = ({ item, onBack, onUpdateItem }: ResumeDetailVie
             {item.jobDescription}
           </div>
         )}
+
 
         {activeTab === "keywords" && (
           <div className="space-y-4">
@@ -251,5 +212,5 @@ function downloadBlob(blob: Blob, filename: string) {
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

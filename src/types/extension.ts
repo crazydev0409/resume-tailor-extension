@@ -24,6 +24,7 @@ export interface DoneItem {
   note?: string;
   link?: string;
   pinned: boolean;
+  theme?: ResumeTheme;
   keywords?: {
     hardSkillsOnResume: string[];
     hardSkillsOnJD: string[];
@@ -32,8 +33,36 @@ export interface DoneItem {
   };
 }
 
+export type ResumeFont = "arial" | "calibri" | "aptos" | "helvetica" | "roboto" | "georgia" | "garamond" | "cambria" | "timesNewRoman" | "verdana";
+export type HeaderAlignment = "left" | "center" | "right";
+
+/** One saved appearance shared by all resume previews and downloads. */
+export interface ResumeTheme {
+  name?: string;
+  template?: "classic" | "modern";
+  accentColor: string;
+  font: ResumeFont;
+  headerAlignment: HeaderAlignment;
+  headerBackground?: boolean;
+  contactSeparator?: "dot" | "bar";
+  experienceBullet?: "dot" | "dash";
+  sectionOrder: string[];
+}
+
+export interface SavedResumeTheme {
+  id: string;
+  theme: ResumeTheme;
+}
+
+export interface ResumeThemeLibrary {
+  activeId: string;
+  themes: SavedResumeTheme[];
+}
+
 /** Shape of chrome.storage keys used by the extension */
 export interface StorageSchema {
+  resumeThemeLibrary: ResumeThemeLibrary;
+  resumeTheme: ResumeTheme;
   openaiApiKey: string;
   openaiApiUrl: string;
   openaiModel: string;

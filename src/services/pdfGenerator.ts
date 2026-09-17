@@ -1,5 +1,9 @@
 import jsPDF from "jspdf";
 import { extractResumeIdentity } from "@/utils/resumeHeader";
+import type { ResumeTheme } from "@/types/extension";
+import { resumeFontAsset } from "@/utils/resumeFontCatalog";
+import { getResumeFonts, loadResumeFonts } from "@/services/resumeFonts";
+import { sectionId, sectionKey } from "@/utils/resumeTheme";
 
 export type PDFColorTheme = "forestGreen" | "navy" | "brown" | "blue";
 export type PDFTemplate =
@@ -105,6 +109,7 @@ export interface PDFOptions {
   filename: string;
   colorTheme?: PDFColorTheme | "random";
   template?: PDFTemplate | "random";
+  theme?: ResumeTheme;
 }
 
 interface ParsedContent {
@@ -125,7 +130,8 @@ interface ParsedContent {
 function buildResumePDFDoc(
   content: string,
   resolvedColor: PDFColorTheme,
-  resolvedTemplate: PDFTemplate
+  resolvedTemplate: PDFTemplate,
+  resumeTheme?: ResumeTheme
 ): jsPDF {
   const doc = new jsPDF({
     orientation: "portrait",
@@ -134,11 +140,16 @@ function buildResumePDFDoc(
   });
 
   const theme = COLOR_THEMES[resolvedColor];
-  const primaryColor = theme.primary;
-  const accentColor = theme.accent;
+  const customAccent = resumeTheme?.accentColor
+    ?.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i)
+    ?.slice(1)
+    .map((part) => parseInt(part, 16)) as [number, number, number] | undefined;
+  const primaryColor = customAccent ?? theme.primary;
+  const accentColor = customAccent && !customAccent.every((value, index) => value === theme.primary[index])
+    ? customAccent : theme.accent;
   const textColor = theme.text;
   const lightTextColor = theme.light;
-  const headerBgColor = theme.headerBg;
+  const headerBgColor = customAccent ?? theme.headerBg;
 
   // Page settings
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -147,10 +158,16 @@ function buildResumePDFDoc(
   const contentWidth = pageWidth - 2 * margin;
   let yPosition = margin;
 
-  const sectionBarWidth = 4;
-  const sectionBarGap = 4;
-  const isClassic = resolvedTemplate === "classic"; // classic = underline layout; others = accent bar
-  const fontFamily = TEMPLATE_FONT[resolvedTemplate];
+  const isClassic = resolvedTemplate === "classic";
+  const fontFamily = resumeTheme?.font ? resumeFontAsset(resumeTheme.font).family : TEMPLATE_FONT[resolvedTemplate];
+  if (resumeTheme?.font) {
+    const data = getResumeFonts(resumeTheme.font);
+    ["normal", "bold", "italic"].forEach((style, index) => {
+      const file = `${fontFamily}-${style}.ttf`;
+      doc.addFileToVFS(file, data[index]);
+      doc.addFont(file, fontFamily, style);
+    });
+  }
   // Helper function to check if we need a new page
   const checkNewPage = (neededSpace: number) => {
     if (yPosition + neededSpace > pageHeight - 15) {
@@ -307,9 +324,13 @@ function buildResumePDFDoc(
           "projects",
           "achievements",
           "awards",
+          "publications",
+          "volunteer",
+          "languages",
+          "interests",
         ];
 
-        const isRealSection = knownSections.some((s) =>
+        const isRealSection = line.startsWith("## ") || knownSections.some((s) =>
           stripMarkdown(headerText).toLowerCase().includes(s)
         );
 
@@ -425,6 +446,23 @@ function buildResumePDFDoc(
 
       return aIndex - bIndex;
     });
+
+    if (resumeTheme?.sectionOrder.length) {
+      const occurrences = new Map<string, number>();
+      const positions = new Map(resumeTheme.sectionOrder.map((id, index) => [id, index]));
+      const withIds = parsed.sections.map((section, originalIndex) => {
+        const normalized = sectionKey(section.title);
+        const occurrence = (occurrences.get(normalized) ?? 0) + 1;
+        occurrences.set(normalized, occurrence);
+        return { section, originalIndex, id: sectionId(section.title, occurrence) };
+      });
+      withIds.sort((a, b) => {
+        const aPosition = positions.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+        const bPosition = positions.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+        return aPosition - bPosition || a.originalIndex - b.originalIndex;
+      });
+      parsed.sections = withIds.map(({ section }) => section);
+    }
 
     return parsed;
   };
@@ -565,7 +603,7 @@ function buildResumePDFDoc(
       }
     }
 
-    const separator = " \u2022 ";
+    const separator = resumeTheme?.contactSeparator === "bar" ? " | " : " \u2022 ";
     const contactFontSize = 10;
     const contactMaxWidth = pageWidth - 2 * margin;
     doc.setFont(fontFamily, "normal");
@@ -608,19 +646,28 @@ function buildResumePDFDoc(
     const headerBandHeight =
       bandTopPad + nameLineHeight + contactBlockHeight + bandBottomPad;
 
-    // Draw full-width colored header band (edge to edge)
-    doc.setFillColor(...headerBgColor);
-    doc.rect(0, 0, pageWidth, headerBandHeight, "F");
+    const showHeaderBackground = resumeTheme?.headerBackground !== false;
+    const brightness = headerBgColor[0] * 0.299 + headerBgColor[1] * 0.587 + headerBgColor[2] * 0.114;
+    const headerText: [number, number, number] = showHeaderBackground && brightness < 160
+      ? [255, 255, 255] : [30, 41, 59];
+    if (showHeaderBackground) {
+      doc.setFillColor(...headerBgColor);
+      doc.rect(0, 0, pageWidth, headerBandHeight, "F");
+    }
 
-    // Name - white text on colored band
+    // Keep text legible on both colored and plain headers.
     yPosition = bandTopPad + nameLineHeight - 2;
     doc.setFontSize(33);
     doc.setFont(fontFamily, "bold");
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(...(showHeaderBackground ? headerText : primaryColor));
     const nameWidth = doc.getTextWidth(nameText);
-    const nameX = isClassic
-      ? Math.max(margin, pageWidth - margin - nameWidth)
-      : (pageWidth - nameWidth) / 2;
+    const headerAlignment = resumeTheme?.headerAlignment ?? (isClassic ? "right" : "center");
+    const alignedX = (width: number) => {
+      if (headerAlignment === "left") return margin;
+      if (headerAlignment === "right") return Math.max(margin, pageWidth - margin - width);
+      return (pageWidth - width) / 2;
+    };
+    const nameX = alignedX(nameWidth);
     doc.text(nameText, nameX, yPosition);
     yPosition += 7;
 
@@ -628,7 +675,7 @@ function buildResumePDFDoc(
     if (contactLines.length > 0) {
       doc.setFontSize(contactFontSize);
       doc.setFont(fontFamily, "normal");
-      doc.setTextColor(230, 237, 243);
+      doc.setTextColor(...(showHeaderBackground ? headerText : textColor));
 
       for (const lineParts of contactLines) {
         let lineText = "";
@@ -638,9 +685,7 @@ function buildResumePDFDoc(
         }
         const lineWidth = doc.getTextWidth(lineText);
         // Both contact lines right-aligned for classic; centered for modern
-        let startX = isClassic
-          ? pageWidth - margin - lineWidth
-          : (pageWidth - lineWidth) / 2;
+        let startX = alignedX(lineWidth);
         startX = Math.max(margin, startX);
 
         let currentX = startX;
@@ -655,6 +700,13 @@ function buildResumePDFDoc(
         }
         yPosition += contactLineGap;
       }
+    }
+
+    if (!showHeaderBackground) {
+      // Frame the plain header below its final contact/address line.
+      doc.setDrawColor(...primaryColor);
+      doc.setLineWidth(0.7);
+      doc.line(margin, yPosition + 1.5, pageWidth - margin, yPosition + 1.5);
     }
 
     // Position after the header band with breathing room
@@ -693,7 +745,7 @@ function buildResumePDFDoc(
 
     checkNewPage(15);
 
-    // Section title: modern = left accent bar, classic = underline only
+    // Classic uses an underline; Modern uses a light trailing hairline.
     if (section.title) {
       const cleanTitle = stripMarkdown(section.title);
       const titleText = cleanTitle.toUpperCase();
@@ -711,19 +763,25 @@ function buildResumePDFDoc(
         doc.line(margin, yPosition, pageWidth - margin, yPosition);
         yPosition += 7;
       } else {
-        // Modern: left accent bar + title
-        doc.setFillColor(...primaryColor);
-        doc.rect(margin, yPosition, sectionBarWidth, 8, "F");
-        doc.setFontSize(14);
+        // Modern: compact heading aligned with the body, without a heavy block.
+        doc.setFontSize(12);
         doc.setFont(fontFamily, "bold");
         doc.setTextColor(...primaryColor);
-        doc.text(titleText, margin + sectionBarWidth + sectionBarGap, titleY);
-        yPosition += 12;
+        doc.text(titleText, margin, titleY);
+        const ruleStart = margin + doc.getTextWidth(titleText) + 4;
+        if (ruleStart < pageWidth - margin - 5) {
+          const ruleColor = primaryColor.map((channel) => Math.round(channel * 0.3 + 255 * 0.7)) as [number, number, number];
+          doc.setDrawColor(...ruleColor);
+          doc.setLineWidth(0.25);
+          doc.line(ruleStart, titleY - 1.3, pageWidth - margin, titleY - 1.3);
+        }
+        yPosition += 10;
       }
     }
 
     // Check if this is a skills section or summary section
     const isSkillsSection = section.title.toLowerCase().includes("skill");
+    const isExperienceSection = /experience|employment/i.test(section.title);
     const isSummarySection =
       section.title.toLowerCase().includes("summary") ||
       section.title.toLowerCase().includes("profile");
@@ -1011,11 +1069,13 @@ function buildResumePDFDoc(
 
       // Bullet points
       if (
+        /^(?:[-*+]|\u2022)\s+/.test(trimmed) ||
         trimmed.startsWith("*   ") ||
         trimmed.startsWith("- ") ||
         trimmed.startsWith("• ")
       ) {
         let bulletText = trimmed
+          .replace(/^(?:[-*+]|\u2022)\s+/, "")
           .replace(/^\*\s+/, "")
           .replace(/^-\s+/, "")
           .replace(/^•\s+/, "")
@@ -1025,9 +1085,14 @@ function buildResumePDFDoc(
         doc.setFont(fontFamily, "normal");
         doc.setTextColor(...textColor);
 
-        // Use a consistent black circular marker across all templates.
-        doc.setFillColor(0, 0, 0);
-        doc.circle(margin + 2.5, yPosition - 1.2, 0.7, "F");
+        if (isExperienceSection && resumeTheme?.experienceBullet === "dash") {
+          doc.setDrawColor(0, 0, 0);
+          doc.setLineWidth(0.35);
+          doc.line(margin + 1.5, yPosition - 1.2, margin + 3.5, yPosition - 1.2);
+        } else {
+          doc.setFillColor(0, 0, 0);
+          doc.circle(margin + 2.5, yPosition - 1.2, 0.7, "F");
+        }
 
         // Parse and render text with accurate mixed bold/normal width wrapping
         // Tokenize into words/spaces with bold tracking
@@ -1042,8 +1107,10 @@ function buildResumePDFDoc(
           }
         }
 
+        // Keep experience markers closer to text, including wrapped lines.
+        const bulletIndent = isExperienceSection ? 6 : 8;
         // Build lines measuring each token in its actual font weight
-        const availWidth = contentWidth - 8;
+        const availWidth = contentWidth - bulletIndent;
         const renderLines: { text: string; bold: boolean }[][] = [];
         let curLine: { text: string; bold: boolean }[] = [];
         let curWidth = 0;
@@ -1077,7 +1144,7 @@ function buildResumePDFDoc(
         // Render lines
         for (const rLine of renderLines) {
           checkNewPage(5);
-          let xPos = margin + 8;
+          let xPos = margin + bulletIndent;
           for (const seg of rLine) {
             doc.setFont(fontFamily, seg.bold ? "bold" : "normal");
             doc.setTextColor(...textColor);
@@ -1137,15 +1204,17 @@ function buildResumePDFDoc(
 /**
  * Generate a resume PDF and trigger a browser download.
  */
-export function generateResumePDF({
+export async function generateResumePDF({
   content,
   filename,
   colorTheme = "brown",
   template = "classic",
+  theme,
 }: PDFOptions) {
+  if (theme?.font) await loadResumeFonts(theme.font);
   const resolvedColor: PDFColorTheme = colorTheme === "random" ? randomTheme() : colorTheme;
   const resolvedTemplate: PDFTemplate = template === "random" ? randomTemplate() : template;
-  const doc = buildResumePDFDoc(content, resolvedColor, resolvedTemplate);
+  const doc = buildResumePDFDoc(content, resolvedColor, resolvedTemplate, theme);
   doc.save(filename);
 }
 
@@ -1157,17 +1226,18 @@ export function generateResumePDFBlob({
   filename,
   colorTheme = "brown",
   template = "classic",
+  theme,
 }: PDFOptions): Blob {
   const resolvedColor: PDFColorTheme = colorTheme === "random" ? randomTheme() : colorTheme;
   const resolvedTemplate: PDFTemplate = template === "random" ? randomTemplate() : template;
-  const doc = buildResumePDFDoc(content, resolvedColor, resolvedTemplate);
+  const doc = buildResumePDFDoc(content, resolvedColor, resolvedTemplate, theme);
   return doc.output("blob") as unknown as Blob;
 }
 
 // Initialize PDF download listener (optional: event.detail can include colorTheme, template)
 if (typeof window !== "undefined") {
   window.addEventListener("download-pdf", ((event: CustomEvent) => {
-    const { content, filename, colorTheme, template } = event.detail ?? {};
-    generateResumePDF({ content, filename, colorTheme, template });
+    const { content, filename, colorTheme, template, theme } = event.detail ?? {};
+    generateResumePDF({ content, filename, colorTheme, template, theme });
   }) as EventListener);
 }

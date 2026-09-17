@@ -18,10 +18,11 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { CloudRecord, listGenerationRecords } from "@/services/supabaseHistory";
-import { DoneItem } from "@/types/extension";
+import { DoneItem, ResumeTheme } from "@/types/extension";
 import { ResumeDetailView } from "@/components/ext/ResumeDetailView";
 
 interface ArchiveViewProps {
+  theme: ResumeTheme;
   supabaseUrl: string;
   supabaseAnonKey: string;
   onBack: () => void;
@@ -48,7 +49,7 @@ function cloudRecordToDoneItem(record: CloudRecord): DoneItem {
   };
 }
 
-export const ArchiveView = ({ supabaseUrl, supabaseAnonKey, onBack, onGoToSettings }: ArchiveViewProps) => {
+export const ArchiveView = ({ supabaseUrl, supabaseAnonKey, onBack, onGoToSettings, theme }: ArchiveViewProps) => {
   const isConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
   const [records, setRecords] = useState<CloudRecord[]>([]);
@@ -124,7 +125,7 @@ export const ArchiveView = ({ supabaseUrl, supabaseAnonKey, onBack, onGoToSettin
       <ResumeDetailView
         item={cloudRecordToDoneItem(selectedRecord)}
         onBack={() => setSelectedRecord(null)}
-        onUpdateItem={() => {}}
+        theme={theme}
       />
     );
   }

@@ -32,14 +32,17 @@ import {
   CheckCircle,
   X,
 } from "lucide-react";
-import { DoneItem } from "@/types/extension";
+import { DoneItem, ResumeTheme } from "@/types/extension";
+import { DEFAULT_RESUME_THEME } from "@/utils/resumeTheme";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { generateResumePDFBlob } from "@/services/pdfGenerator";
+import { loadResumeFonts } from "@/services/resumeFonts";
 import { stripCertificationsSection } from "@/lib/utils";
 import { candidateResumeFilename, ensureResumeHeader } from "@/utils/resumeHeader";
 
 interface DoneListProps {
+  theme?: ResumeTheme;
   items: DoneItem[];
   onViewItem: (item: DoneItem) => void;
   onRemoveItem: (id: string) => void;
@@ -50,6 +53,7 @@ interface DoneListProps {
 }
 
 export const DoneList = ({
+  theme = DEFAULT_RESUME_THEME,
   items,
   onViewItem,
   onRemoveItem,
@@ -111,12 +115,14 @@ export const DoneList = ({
         const item = sorted[i];
         const folderName = sanitizeForPath(`${item.companyName} - ${item.role}`);
         const fileName = candidateResumeFilename(item.tailoredResume, item.originalResume);
-        const resumeContent = ensureResumeHeader(item.tailoredResume, item.originalResume);
+        const resumeContent = stripCertificationsSection(ensureResumeHeader(item.tailoredResume, item.originalResume));
+        await loadResumeFonts(theme.font);
         const pdfBlob = generateResumePDFBlob({
           content: resumeContent,
           filename: fileName,
           colorTheme: "brown",
-          template: "classic",
+          template: theme.template ?? "classic",
+          theme,
         });
         // Forward slash tells Chrome to place the file inside a subfolder.
         await downloadBlobToPath(pdfBlob, `${folderName}/${fileName}`);

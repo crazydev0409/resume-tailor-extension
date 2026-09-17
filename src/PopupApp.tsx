@@ -8,10 +8,12 @@ import { TailorView } from "@/components/ext/TailorView";
 import { SettingsView } from "@/components/ext/SettingsView";
 import { ResumeDetailView } from "@/components/ext/ResumeDetailView";
 import { ArchiveView } from "@/components/ext/ArchiveView";
-import { FileText, Settings, PlusCircle, Sun, Moon, Archive } from "lucide-react";
+import { ThemeView } from "@/components/ext/ThemeView";
+import { useSavedResumeTheme } from "@/hooks/useSavedResumeTheme";
+import { FileText, Settings, PlusCircle, Sun, Moon, Archive, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type View = "main" | "tailor" | "settings" | "detail" | "archive";
+type View = "main" | "tailor" | "settings" | "detail" | "archive" | "theme";
 
 const PopupApp = () => {
   const [view, setView] = useState<View>("main");
@@ -23,6 +25,7 @@ const PopupApp = () => {
   const [model, setModel] = useChromeStorage("openaiModel", "deepseek-v4-flash");
   const [isDarkMode, setIsDarkMode] = useChromeStorage("isDarkMode", false);
   const [baseResume, setBaseResume] = useChromeStorage("baseResume", "");
+  const { theme: resumeTheme, library: themeLibrary, ready: themeReady, error: themeError, reload: reloadTheme, save: saveTheme } = useSavedResumeTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useChromeStorage("notificationsEnabled", true);
   const [notifyOnStart, setNotifyOnStart] = useChromeStorage("notifyOnStart", true);
   const [supabaseUrl, setSupabaseUrl] = useChromeStorage("supabaseUrl", "");
@@ -122,6 +125,13 @@ const PopupApp = () => {
 
   const workingCount = workingItems.filter((i) => i.status === "tailoring").length;
 
+  if (!themeReady) return (
+    <div className="flex h-[600px] w-[780px] flex-col items-center justify-center gap-3 bg-background p-6 text-sm text-foreground">
+      <p role={themeError ? "alert" : "status"}>{themeError || "Loading saved theme…"}</p>
+      {themeError && <Button onClick={() => void reloadTheme()}>Retry</Button>}
+    </div>
+  );
+
   return (
     <div className="h-[600px] w-[780px] bg-background text-foreground flex flex-col overflow-hidden">
       {/* Header */}
@@ -134,6 +144,16 @@ const PopupApp = () => {
           <h1 className="text-sm font-bold">AI Resume Tailor</h1>
         </button>
         <div className="flex items-center gap-1">
+          <Button
+            variant={view === "theme" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setView("theme")}
+            className="h-7 text-xs gap-1"
+            title="Customize & Preview"
+          >
+            <Palette className="w-3 h-3" />
+            Theme
+          </Button>
           <Button
             variant={view === "tailor" ? "default" : "ghost"}
             size="sm"
@@ -186,6 +206,7 @@ const PopupApp = () => {
             {/* Done section */}
             <DoneList
               items={doneItems}
+              theme={resumeTheme}
               onViewItem={(item) => { setSelectedItem(item); setView("detail"); }}
               onRemoveItem={(id) => sendMsg({ type: "REMOVE_DONE", id })}
               onClearAll={() => sendMsg({ type: "CLEAR_DONE" })}
@@ -194,6 +215,11 @@ const PopupApp = () => {
               hasWorkingItems={workingItems.length > 0}
             />
           </div>
+        )}
+
+        {view === "theme" && (
+          <ThemeView theme={resumeTheme} library={themeLibrary} onApply={saveTheme} items={doneItems} baseResume={baseResume}
+            onBack={() => { setSelectedItem(null); setView("main"); }} />
         )}
 
         {view === "tailor" && (
@@ -229,6 +255,7 @@ const PopupApp = () => {
 
         {view === "archive" && (
           <ArchiveView
+            theme={resumeTheme}
             supabaseUrl={supabaseUrl}
             supabaseAnonKey={supabaseAnonKey}
             onBack={() => setView("main")}
@@ -239,8 +266,8 @@ const PopupApp = () => {
         {view === "detail" && selectedItem && (
           <ResumeDetailView
             item={selectedItem}
+            theme={resumeTheme}
             onBack={() => { setSelectedItem(null); setView("main"); }}
-            onUpdateItem={(id, updates) => sendMsg({ type: "UPDATE_DONE", id, updates })}
           />
         )}
       </main>

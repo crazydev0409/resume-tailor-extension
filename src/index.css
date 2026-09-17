@@ -100,6 +100,56 @@ All colors MUST be HSL.
   }
 }
 
+@layer components {
+  .resume-theme-preview header h1,
+  .resume-theme-preview header h2,
+  .resume-theme-preview header h3 {
+    margin: 0 0 0.35rem;
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .resume-theme-preview header p {
+    margin: 0.15rem 0;
+    font-size: 0.58rem;
+    line-height: 1.5;
+  }
+
+  .resume-theme-preview header a {
+    color: inherit;
+  }
+
+  .resume-theme-preview > div h2,
+  .resume-theme-preview > div h3 {
+    margin: 0 0 0.55rem;
+    border-bottom: 1px solid var(--resume-accent);
+    color: var(--resume-accent);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1.8;
+    text-transform: uppercase;
+  }
+
+  .resume-theme-preview > div p,
+  .resume-theme-preview > div li {
+    margin: 0.25rem 0;
+    font-size: 0.56rem;
+    line-height: 1.55;
+  }
+
+  .resume-theme-preview > div ul {
+    margin: 0.25rem 0 0.5rem;
+    list-style: disc;
+    padding-left: 1rem;
+  }
+
+  .resume-theme-preview > div strong {
+    font-weight: 600;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
